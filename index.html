@@ -1997,19 +1997,22 @@ body { background: radial-gradient(ellipse at 50% 30%, #dbf2f4, #8fcbd6 65%, #5f
       this.syncWater(engine, engine.paused ? 0 : dt, !!ui.reducedMotion);
       const c = this.ctx, b = this.bounds;
       c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      // Always clear the physical backing store before drawing the next frame.
+      // This also protects mobile browsers from retaining translucent edge
+      // pixels when the ocean plate drifts by a fraction of a CSS pixel.
+      c.clearRect(0, 0, this.cssWidth, this.cssHeight);
       const drift = this.reducedMotion ? 0 : Math.sin(this.t * .18) * 3;
       c.drawImage(A.images.water, -6 + drift, -6, this.cssWidth + 12, this.cssHeight + 12);
       c.fillStyle = '#0095b824'; c.fillRect(0, 0, this.cssWidth, this.cssHeight);
       c.save(); c.translate(b.x, b.y); c.scale(b.scale, b.scale);
       const water = this.waterLevel;
-      let base = 0, next = 0, alpha = 0;
-      for (let i = 0; i < 3; i++) {
-        const threshold = [50, 68, 84][i];
-        if (water >= threshold + 2) { base = i + 1; next = base; alpha = 0; }
-        else if (water > threshold - 2) { base = i; next = i + 1; alpha = smooth((water - threshold + 2) / 4); break; }
-      }
+      // The four generated tide plates do not share pixel-perfect landmark
+      // positions. Cross-fading two complete plates made the cottage and trees
+      // appear twice near 50/68/84% water. Draw one plate at a time; the tide
+      // rings below provide the continuous rise/retreat transition.
+      let base = 0;
+      for (const threshold of [50, 68, 84]) if (water >= threshold) base += 1;
       c.drawImage(this.tiles[base], 60, 40, 300, 400);
-      if (next !== base) { c.globalAlpha = alpha; c.drawImage(this.tiles[next], 60, 40, 300, 400); c.globalAlpha = 1; }
       this.tide(c, engine);
       this.buildings(c, engine);
       this.nurseryBack?.(c, engine);
